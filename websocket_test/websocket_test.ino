@@ -61,7 +61,8 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
         Serial.print("Message received: ");
         Serial.println(str);
       } else {
-        Serial.println("[%u] Message not recognized");
+        Serial.print(str)
+        Serial.println(" [%u] Message not recognized");
       }
       break;
 
