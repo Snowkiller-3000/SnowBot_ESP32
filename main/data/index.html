@@ -109,7 +109,7 @@ class JoystickController
 		    const xPosition2 = distance2 * Math.cos(angle);
 			const yPosition2 = distance2 * Math.sin(angle);
 		    const xPercent = parseFloat((xPosition2 / maxDistance).toFixed(4));
-		    const yPercent = parseFloat((yPosition2 / maxDistance).toFixed(4));
+		    const yPercent = (-1) * parseFloat((yPosition2 / maxDistance).toFixed(4));
 
 		    self.value = { x: xPercent, y: yPercent };
 				doSend("X" + JSON.stringify(joystick1.value.x) + "Y" + JSON.stringify(joystick1.value.y));

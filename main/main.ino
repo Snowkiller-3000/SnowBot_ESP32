@@ -69,11 +69,16 @@ const int ws_port = 1024;
 // Electrical Constants
 const float voltageCalVal = 0.007412109375; // ADC reading is multiplied by this value to get a voltage reading
 
+
+// Global Variables
+char msg_buf[10];
+
+// Create SPI object on HSPI pins (CLK 14, DI 13)
 SPIClass SPI1(HSPI);
 
+// Create Server
 AsyncWebServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(ws_port);
-char msg_buf[10];
 
 void setup() {
   SPI1.begin();
@@ -94,6 +99,8 @@ void setup() {
   pinMode(aux2, OUTPUT);
   pinMode(aux3, OUTPUT);
   pinMode(aux4, OUTPUT);
+
+  disableMotors(); // Most important thing, disable motors!
 
   // Make sure we can read the file system
   if ( !SPIFFS.begin()) {
@@ -135,35 +142,44 @@ void setup() {
 
 void loop() {
   webSocket.loop();
-
-  //  for (int i = 0; i < 255; i++) {
-  //    setMotor(0, i, 0);
-  //    setMotor(1, i, 0);
-  //    Serial.println(i);
-  //    delay(25);
-  //  }
-
 }
 
 float getBatteryVoltage() {
   return analogRead(battPin) * voltageCalVal;
 }
 
-void setMotor(bool whichMotor, int newSpeed, bool dir) {
+void setMotor(int whichMotor, int newSpeed) { // speed value must be between -255 and 255
+  if (newSpeed >= -255 && newSpeed <= 255) {
 
-  if (!whichMotor) { // Change Motor 1
-    digiPotWrite(SPI_CS1, newSpeed);
-    if (dir)
-      digitalWrite(motorDir1, LOW);
-    else
-      digitalWrite(motorDir1, HIGH);
+    int absSpeed = abs(newSpeed);
+    bool dir = (newSpeed < 0) ? 0 : 1;
+
+    Serial.print("Setting motor ");
+    Serial.print(whichMotor);
+    Serial.print(" to speed ");
+    Serial.print(absSpeed);
+    Serial.println((dir) ? ", FWD" : ", REV");
+
+    if (whichMotor == 1) { // Change Motor 1
+      digiPotWrite(SPI_CS1, absSpeed);
+      if (dir)
+        digitalWrite(motorDir1, LOW);
+      else
+        digitalWrite(motorDir1, HIGH);
+    }
+    else if (whichMotor == 2) { // Change Motor 2
+      digiPotWrite(SPI_CS2, absSpeed);
+      if (dir)
+        digitalWrite(motorDir2, LOW);
+      else
+        digitalWrite(motorDir2, HIGH);
+    }
+    else {
+      Serial.println("Error: Invalid motor identifier");
+    }
   }
-  else { // Change Motor 2
-    digiPotWrite(SPI_CS2, newSpeed);
-    if (dir)
-      digitalWrite(motorDir2, LOW);
-    else
-      digitalWrite(motorDir2, HIGH);
+  else {
+    Serial.println("Error: Speed out of range");
   }
 }
 
@@ -207,31 +223,46 @@ void setActuator(bool whichActuator, int dir) {
 }
 
 void setAuxPwr(int auxPort, bool state) {
+  bool validPort = 0;
   switch (auxPort) {
     case 1:
+      validPort = 1;
       digitalWrite(aux1, state);
       break;
     case 2:
+      validPort = 1;
       digitalWrite(aux2, state);
       break;
     case 3:
+      validPort = 1;
       digitalWrite(aux3, state);
       break;
-    case 4:
-      digitalWrite(aux4, state);
-      break;
+    default:
+      Serial.println("Error: This aux port is reserved or does not exist");
+  }
+  if (validPort) {
+    Serial.print("Setting port ");
+    Serial.print(auxPort);
+    Serial.print(" to state ");
+    Serial.println(state);
   }
 }
 
 // Callback: receiving any WebSocket message
 void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size_t length) {
+
   String str = (char *)payload;
+
   // Figure out the type of WebSocket event
   switch (type) {
 
     // Client has disconnected
     case WStype_DISCONNECTED:
-      Serial.printf("[%u] Disconnected!\n", client_num);
+      // Client disconnected, kill both motors
+      setMotor(1, 0);
+      setMotor(2, 0);
+      disableMotors();
+      Serial.println("Disconnected!");
       break;
 
     // New client has connected
@@ -246,18 +277,30 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
     // Handle text messages from client
     case WStype_TEXT:
 
+      Serial.print("New message: ");
+      Serial.println(str);
       // Print out raw message
-      Serial.printf("[%u] Received text: ", client_num);
+      //      Serial.printf("[%u] Received text: ", client_num);
 
       if (str.indexOf("X") != -1 ) {    // Joystick data sent
-        Serial.print("Joystick data received: ");
-        Serial.println(str);
+        //        Serial.print("Joystick data received: ");
+        //        Serial.println(str);
+        float x = str.substring(1, str.indexOf('Y')).toFloat();
+        float y = str.substring(str.indexOf('Y') + 1).toFloat();
+        Serial.print("X: ");
+        Serial.print(x);
+        Serial.print(" Y: ");
+        Serial.println(y);
+
+        setMotor(1, mixMotor1(x, y));
+        setMotor(2, mixMotor2(x, y));
+
       } else if (strcmp((char *)payload, "STOP") == 0) {    // Joystick released, stop motors
-        Serial.print("Message received: ");
-        Serial.println(str);
+        Serial.println("Stopping");
+        setMotor(1, 0);
+        setMotor(2, 0);
       } else {
-        Serial.print(str);
-        Serial.println(" [%u] Message not recognized");
+        Serial.println("Message not recognized");
       }
       break;
 
@@ -271,6 +314,18 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
     default:
       break;
   }
+}
+
+void enableMotors() {
+  // Turn on the main power solenoid to the motor controllers
+  digitalWrite(aux4, HIGH);
+  Serial.println("Enabling motor controllers");
+}
+
+void disableMotors() {
+  // Turn off the main power solenoid to the motor controllers
+  digitalWrite(aux4, LOW);
+  Serial.println("Disabling motor controllers");
 }
 
 void onIndexRequest(AsyncWebServerRequest *request) {
@@ -311,4 +366,14 @@ void onJoystickRedRequest(AsyncWebServerRequest *request) {
   Serial.println("[" + remote_ip.toString() +
                  "] HTTP GET request of " + request->url());
   request->send(SPIFFS, "/joystick-red.png", "image/png");
+}
+
+int mixMotor1(float X, float Y) {
+  int result = (int)((Y - X) * 50);
+  return result;
+}
+
+int mixMotor2(float X, float Y) {
+  int result = (int)((Y + X) * 50);
+  return result;
 }
