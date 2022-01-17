@@ -68,7 +68,7 @@ const int ws_port = 1024;
 
 // Electrical Constants
 const float voltageCalVal = 0.007412109375; // ADC reading is multiplied by this value to get a voltage reading
-const int speedLimit = 40; // Speed can be limited for safety during testing. Acceptable values are 0 to 255.
+const int speedLimit = 250; // Speed can be limited for safety during testing. Acceptable values are 0 to 255.
 const int flipX = 1; // The X-value from the joystick can be sign flipped by making this -1
 const int flipY = -1; // The Y-value from the joystick can be sign flipped by making this -1
 const unsigned long motorTimeout = 30000; // If no commands received after this time, disable motors
@@ -205,6 +205,11 @@ void digiPotWrite(int CS, int value)
 }
 
 void setActuator(bool whichActuator, int dir) {
+  Serial.print("Setting actuator ");
+  Serial.print(whichActuator);
+  Serial.print(" to direction ");
+  Serial.println(dir);
+
   if (whichActuator) {
     if (dir == 1) {
       digitalWrite(act1L, LOW);
@@ -279,6 +284,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
       disableMotors();
       Serial.println("Disconnected!");
       isConnected = 0;
+      digitalWrite(ledPin, LOW);
       break;
 
     // New client has connected
@@ -287,6 +293,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
         IPAddress ip = webSocket.remoteIP(client_num);
         Serial.printf("[%u] Connection from ", client_num);
         Serial.println(ip.toString());
+        digitalWrite(ledPin, HIGH);
         isConnected = 1;
       }
       break;
@@ -299,11 +306,9 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
       // Print out raw message
       //      Serial.printf("[%u] Received text: ", client_num);
 
-      if (str.indexOf("X") != -1 ) {    // Joystick data sent
-        //        Serial.print("Joystick data received: ");
-        //        Serial.println(str);
-        float x = flipX * str.substring(1, str.indexOf('Y')).toFloat();
-        float y = flipY * str.substring(str.indexOf('Y') + 1).toFloat();
+      if (str.indexOf("M") != -1 ) {    // Motor joystick data sent
+        float x = flipX * str.substring(1, str.indexOf(',')).toFloat();
+        float y = flipY * str.substring(str.indexOf(',') + 1).toFloat();
         Serial.print("X: ");
         Serial.print(x);
         Serial.print(" Y: ");
@@ -312,11 +317,36 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
         enableMotors();
         setMotor(1, mixMotor1(x, y));
         setMotor(2, mixMotor2(x, y));
+      } else if (str.indexOf("P") != -1 ) {    // Plow joystick data sent
+        float x = flipX * str.substring(1, str.indexOf(',')).toFloat();
+        float y = flipY * str.substring(str.indexOf(',') + 1).toFloat();
+        Serial.print("Plow X: ");
+        Serial.print(x);
+        Serial.print(" Plow Y: ");
+        Serial.println(y);
+        if (x > 0.25) {
+          setActuator(0, 1);
+        } else if (x < -0.25) {
+          setActuator(0, -1);
+        } else {
+          setActuator(0, 0);
+        }
+        if (y > 0.25) {
+          setActuator(1, 1);
+        } else if (y < -0.25) {
+          setActuator(1, -1);
+        } else {
+          setActuator(1, 0);
+        }
 
-      } else if (strcmp((char *)payload, "STOP") == 0) {    // Joystick released, stop motors
-        Serial.println("Stopping");
+      } else if (strcmp((char *)payload, "STOP_M") == 0) {    // Joystick released, stop drive motors
+        Serial.println("Stopping Motors");
         setMotor(1, 0);
         setMotor(2, 0);
+      } else if (strcmp((char *)payload, "STOP_P") == 0) {    // Joystick released, stop plow actuators
+        Serial.println("Stopping Actuators");
+        setActuator(0, 0);
+        setActuator(1, 0);
       } else {
         Serial.println("Message not recognized");
       }
