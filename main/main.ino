@@ -68,10 +68,16 @@ const int ws_port = 1024;
 
 // Electrical Constants
 const float voltageCalVal = 0.007412109375; // ADC reading is multiplied by this value to get a voltage reading
-
+const int speedLimit = 40; // Speed can be limited for safety during testing. Acceptable values are 0 to 255.
+const int flipX = 1; // The X-value from the joystick can be sign flipped by making this -1
+const int flipY = -1; // The Y-value from the joystick can be sign flipped by making this -1
+const unsigned long motorTimeout = 30000; // If no commands received after this time, disable motors
 
 // Global Variables
 char msg_buf[10];
+bool isConnected = 0;
+unsigned long lastCommand = 0;
+bool timedOut = 0;
 
 // Create SPI object on HSPI pins (CLK 14, DI 13)
 SPIClass SPI1(HSPI);
@@ -101,6 +107,8 @@ void setup() {
   pinMode(aux4, OUTPUT);
 
   disableMotors(); // Most important thing, disable motors!
+  setMotor(1, 0); // Set both motors to zero
+  setMotor(2, 0);
 
   // Make sure we can read the file system
   if ( !SPIFFS.begin()) {
@@ -142,6 +150,10 @@ void setup() {
 
 void loop() {
   webSocket.loop();
+  if (!timedOut && ((millis() - lastCommand) > motorTimeout)) {
+    disableMotors();
+    timedOut = 1;
+  }
 }
 
 float getBatteryVoltage() {
@@ -149,16 +161,17 @@ float getBatteryVoltage() {
 }
 
 void setMotor(int whichMotor, int newSpeed) { // speed value must be between -255 and 255
-  if (newSpeed >= -255 && newSpeed <= 255) {
+
+  if (newSpeed >= -speedLimit && newSpeed <= speedLimit) {
 
     int absSpeed = abs(newSpeed);
-    bool dir = (newSpeed < 0) ? 0 : 1;
+    bool dir = (newSpeed <= 0) ? 0 : 1;
 
     Serial.print("Setting motor ");
     Serial.print(whichMotor);
     Serial.print(" to speed ");
     Serial.print(absSpeed);
-    Serial.println((dir) ? ", FWD" : ", REV");
+    Serial.println((dir) ? ", REV" : ", FWD");
 
     if (whichMotor == 1) { // Change Motor 1
       digiPotWrite(SPI_CS1, absSpeed);
@@ -251,6 +264,8 @@ void setAuxPwr(int auxPort, bool state) {
 // Callback: receiving any WebSocket message
 void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size_t length) {
 
+  lastCommand = millis();
+  timedOut = 0;
   String str = (char *)payload;
 
   // Figure out the type of WebSocket event
@@ -263,6 +278,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
       setMotor(2, 0);
       disableMotors();
       Serial.println("Disconnected!");
+      isConnected = 0;
       break;
 
     // New client has connected
@@ -271,6 +287,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
         IPAddress ip = webSocket.remoteIP(client_num);
         Serial.printf("[%u] Connection from ", client_num);
         Serial.println(ip.toString());
+        isConnected = 1;
       }
       break;
 
@@ -285,13 +302,14 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
       if (str.indexOf("X") != -1 ) {    // Joystick data sent
         //        Serial.print("Joystick data received: ");
         //        Serial.println(str);
-        float x = str.substring(1, str.indexOf('Y')).toFloat();
-        float y = str.substring(str.indexOf('Y') + 1).toFloat();
+        float x = flipX * str.substring(1, str.indexOf('Y')).toFloat();
+        float y = flipY * str.substring(str.indexOf('Y') + 1).toFloat();
         Serial.print("X: ");
         Serial.print(x);
         Serial.print(" Y: ");
         Serial.println(y);
 
+        enableMotors();
         setMotor(1, mixMotor1(x, y));
         setMotor(2, mixMotor2(x, y));
 
@@ -318,8 +336,13 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
 
 void enableMotors() {
   // Turn on the main power solenoid to the motor controllers
-  digitalWrite(aux4, HIGH);
-  Serial.println("Enabling motor controllers");
+  if (isConnected) { // only if a client is connected
+    digitalWrite(aux4, HIGH);
+    Serial.println("Enabling motor controllers");
+  }
+  else {
+    Serial.println("Error: No client connected");
+  }
 }
 
 void disableMotors() {
@@ -328,7 +351,7 @@ void disableMotors() {
   Serial.println("Disabling motor controllers");
 }
 
-void onIndexRequest(AsyncWebServerRequest *request) {
+void onIndexRequest(AsyncWebServerRequest * request) {
   // Callback: send homepage
   IPAddress remote_ip = request->client()->remoteIP();
   Serial.println("[" + remote_ip.toString() +
@@ -336,7 +359,7 @@ void onIndexRequest(AsyncWebServerRequest *request) {
   request->send(SPIFFS, "/index.html", "text/html");
 }
 
-void onCSSRequest(AsyncWebServerRequest *request) {
+void onCSSRequest(AsyncWebServerRequest * request) {
   // Callback: send style sheet
   IPAddress remote_ip = request->client()->remoteIP();
   Serial.println("[" + remote_ip.toString() +
@@ -344,7 +367,7 @@ void onCSSRequest(AsyncWebServerRequest *request) {
   request->send(SPIFFS, "/style.css", "text/css");
 }
 
-void onPageNotFound(AsyncWebServerRequest *request) {
+void onPageNotFound(AsyncWebServerRequest * request) {
   // Callback: send 404 if requested file does not exist
   IPAddress remote_ip = request->client()->remoteIP();
   Serial.println("[" + remote_ip.toString() +
@@ -352,7 +375,7 @@ void onPageNotFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Error (404)\nYou've made a huge mistake!");
 }
 
-void onJoystickBaseRequest(AsyncWebServerRequest *request) {
+void onJoystickBaseRequest(AsyncWebServerRequest * request) {
   // Callback: send joystick-base.png
   IPAddress remote_ip = request->client()->remoteIP();
   Serial.println("[" + remote_ip.toString() +
@@ -360,7 +383,7 @@ void onJoystickBaseRequest(AsyncWebServerRequest *request) {
   request->send(SPIFFS, "/joystick-base.png", "image/png");
 }
 
-void onJoystickRedRequest(AsyncWebServerRequest *request) {
+void onJoystickRedRequest(AsyncWebServerRequest * request) {
   // Callback: send joystick-red.png
   IPAddress remote_ip = request->client()->remoteIP();
   Serial.println("[" + remote_ip.toString() +
@@ -369,11 +392,13 @@ void onJoystickRedRequest(AsyncWebServerRequest *request) {
 }
 
 int mixMotor1(float X, float Y) {
-  int result = (int)((Y - X) * 50);
+  int result = (int)((Y - X) * speedLimit);
+  result = constrain(result, -speedLimit, speedLimit);
   return result;
 }
 
 int mixMotor2(float X, float Y) {
-  int result = (int)((Y + X) * 50);
+  int result = (int)((Y + X) * speedLimit);
+  result = constrain(result, -speedLimit, speedLimit);
   return result;
 }
