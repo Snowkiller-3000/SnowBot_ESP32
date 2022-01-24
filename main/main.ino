@@ -165,26 +165,25 @@ void setMotor(int whichMotor, int newSpeed) { // speed value must be between -25
   if (newSpeed >= -speedLimit && newSpeed <= speedLimit) {
 
     int absSpeed = abs(newSpeed);
-    bool dir = (newSpeed <= 0) ? 0 : 1;
 
     Serial.print("Setting motor ");
     Serial.print(whichMotor);
     Serial.print(" to speed ");
-    Serial.print(absSpeed);
-    Serial.println((dir) ? ", REV" : ", FWD");
+    Serial.println(newSpeed);
 
     if (whichMotor == 1) { // Change Motor 1
       digiPotWrite(SPI_CS1, absSpeed);
-      if (dir)
+      // if newSPeed == 0, don't change direction (prevent lurch)
+      if (newSpeed > 0)
         digitalWrite(motorDir1, LOW);
-      else
+      else if (newSpeed < 0)
         digitalWrite(motorDir1, HIGH);
     }
     else if (whichMotor == 2) { // Change Motor 2
       digiPotWrite(SPI_CS2, absSpeed);
-      if (dir)
+      if (newSpeed > 0)
         digitalWrite(motorDir2, LOW);
-      else
+      else if (newSpeed < 0)
         digitalWrite(motorDir2, HIGH);
     }
     else {
