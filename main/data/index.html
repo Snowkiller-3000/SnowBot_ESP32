@@ -1,45 +1,62 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-	<title>Joystick</title>
-	<style>
-	body
-	{
-		font-family: Helvetica, sans-serif;
+<meta charset="UTF-8">
+<title>Reeemote Control</title>
+
+<style>
+
+	body {
+		background-color: rgb(18, 14, 27);
+		color: rgb(255, 255, 255);
 		font-size: 16px;
-		font-weight: bold;
+		font-family: "Roboto", Helvetica, sans-serif;
 	}
-	</style>
+
+	.myButton {
+		cursor: pointer;
+	  background-color: rgb(18, 14,27);
+	  border-radius: 8px;
+		border-color: #ffffff;
+		border: solid;
+	  color: #ffffff;
+	  font-family: "Roboto", Helvetica, sans-serif;
+	  font-size: 35px;
+	  font-weight: bold;
+	  text-align: center;
+		padding-top: 12px;
+		padding-bottom: 12px;
+	  position: fixed;
+	}
+
+
+</style>
 </head>
 
 <body>
 
-Robot Snowplow!
+<div style="position: absolute; left:1vw; top:1vw; background-color: rgb(27, 42, 54); border-radius: 25%; height:48vw; width:48vw; border-color: #ffffff; border-style: solid;"></div>
+<div id="stick1" style="position: absolute; left:17.5vw; top:17.5vw; background-color: rgb(90, 140, 180); border-radius: 50%; border-color: #ffffff; border-style: solid; height:15vw; width:15vw; cursor: pointer;"></div>
 
-<div id="status1" style="color: red;"></div>
-<div id="status2" style="color: blue;"></div>
+<div id = 'arm_button' class = "myButton" style = "top: 4vh; left:51vw; width: 48vw;"></div>
+
+<div id = 'horn_button' class = "myButton" style = "top: 13vh; left:51vw; width:15.33vw;"></div>
+<div id = 'headlights_button' class = "myButton" style = "top: 13vh; left:67.33vw; width: 15.33vw;">Headlights</div>
+<div id = 'LED_strip_button' class = "myButton" style = "top: 13vh; left:83.67vw; width: 15.33vw;">LED Strip</div>
+
+<div class = "myButton" style = "top: 37vh; left:72.5vw; width: 5vw; cursor: default;">Plow</div>
+<div id = 'up_button' class = "myButton" style = "top: 28vh; left:72.5vw; width: 5vw;">&#8593;</div>
+<div id = 'down_button' class = "myButton" style = "top: 46vh; left:72.5vw; width: 5vw;">&#8595;</div>
+<div id = 'left_button' class = "myButton" style = "top: 37vh; left:66.5vw; width: 5vw;">&#8592;</div>
+<div id = 'right_button' class = "myButton" style = "top: 37vh; left:78.5vw; width: 5vw;">&#8594;</div>
 
 
-<div style="width: 128px; position: absolute; left:10px; top:100px;">
-	<img src="joystick-base.png"/>
-	<div id="stick1" style="position: absolute; left:32px; top:32px;">
-	<img src="joystick-red.png"/>
-	</div>
-</div>
-
-<div style="width: 128px; position: absolute; left:10px; top:300px;">
-	<img src="joystick-base.png"/>
-	<div id="stick2" style="position: absolute; left:32px; top:32px;">
-	<img src="joystick-red.png"/>
-	</div>
-</div>
+</body>
+</html>
 
 <script>
 
-var url = "ws://192.168.4.1:1024/";
-
-class JoystickController2
+class JoystickController
 {
 	// stickID: ID of HTML element (representing joystick) that will be dragged
 	// maxDistance: maximum amount joystick can move in any direction
@@ -120,119 +137,7 @@ class JoystickController2
 		    const yPercent = (-1) * parseFloat((yPosition2 / maxDistance).toFixed(4));
 
 		    self.value = { x: xPercent, y: yPercent };
-
-				doSend("P" + JSON.stringify(joystick2.value.x) + "," + JSON.stringify(joystick2.value.y));
-		  }
-
-		function handleUp(event)
-		{
-		    if ( !self.active ) return;
-
-		    // if this is a touch event, make sure it is the right one
-		    if (event.changedTouches && self.touchId != event.changedTouches[0].identifier) return;
-
-		    // transition the joystick position back to center
-		    stick.style.transition = '.5s';
-		    stick.style.transform = `translate3d(0px, 0px, 0px)`;
-
-		    // reset everything
-		    self.value = { x: 0, y: 0 };
-		    self.touchId = null;
-		    self.active = false;
-				doSend("STOP_P");
-		}
-
-		stick.addEventListener('mousedown', handleDown);
-		stick.addEventListener('touchstart', handleDown);
-		document.addEventListener('mousemove', handleMove, {passive: false});
-		document.addEventListener('touchmove', handleMove, {passive: false});
-		document.addEventListener('mouseup', handleUp);
-		document.addEventListener('touchend', handleUp);
-	}
-}
-
-class JoystickController1
-{
-	// stickID: ID of HTML element (representing joystick) that will be dragged
-	// maxDistance: maximum amount joystick can move in any direction
-	// deadzone: joystick must move at least this amount from origin to register value change
-	constructor( stickID, maxDistance, deadzone )
-	{
-		this.id = stickID;
-		let stick = document.getElementById(stickID);
-
-		// location from which drag begins, used to calculate offsets
-		this.dragStart = null;
-
-		// track touch identifier in case multiple joysticks present
-		this.touchId = null;
-
-		this.active = false;
-		this.value = { x: 0, y: 0 };
-
-		let self = this;
-
-		function handleDown(event)
-		{
-		  self.active = true;
-
-			// all drag movements are instantaneous
-			stick.style.transition = '0s';
-
-			// touch event fired before mouse event; prevent redundant mouse event from firing
-			event.preventDefault();
-
-		    if (event.changedTouches)
-		    	self.dragStart = { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY };
-		    else
-		    	self.dragStart = { x: event.clientX, y: event.clientY };
-
-			// if this is a touch event, keep track of which one
-		    if (event.changedTouches)
-		    	self.touchId = event.changedTouches[0].identifier;
-		}
-
-		function handleMove(event)
-		{
-		    if ( !self.active ) return;
-
-		    // if this is a touch event, make sure it is the right one
-		    // also handle multiple simultaneous touchmove events
-		    let touchmoveId = null;
-		    if (event.changedTouches)
-		    {
-		    	for (let i = 0; i < event.changedTouches.length; i++)
-		    	{
-		    		if (self.touchId == event.changedTouches[i].identifier)
-		    		{
-		    			touchmoveId = i;
-		    			event.clientX = event.changedTouches[i].clientX;
-		    			event.clientY = event.changedTouches[i].clientY;
-		    		}
-		    	}
-
-		    	if (touchmoveId == null) return;
-		    }
-
-		    const xDiff = event.clientX - self.dragStart.x;
-		    const yDiff = event.clientY - self.dragStart.y;
-		    const angle = Math.atan2(yDiff, xDiff);
-			const distance = Math.min(maxDistance, Math.hypot(xDiff, yDiff));
-			const xPosition = distance * Math.cos(angle);
-			const yPosition = distance * Math.sin(angle);
-
-			// move stick image to new position
-		    stick.style.transform = `translate3d(${xPosition}px, ${yPosition}px, 0px)`;
-
-			// deadzone adjustment
-			const distance2 = (distance < deadzone) ? 0 : maxDistance / (maxDistance - deadzone) * (distance - deadzone);
-		    const xPosition2 = distance2 * Math.cos(angle);
-			const yPosition2 = distance2 * Math.sin(angle);
-		    const xPercent = parseFloat((xPosition2 / maxDistance).toFixed(4));
-		    const yPercent = (-1) * parseFloat((yPosition2 / maxDistance).toFixed(4));
-
-		    self.value = { x: xPercent, y: yPercent };
-				doSend("M" + JSON.stringify(joystick1.value.x) + "," + JSON.stringify(joystick1.value.y));
+				doSend("M" + JSON.stringify(joystick1.value.x) + "," + JSON.stringify(joystick1.value.y)); // this sends the joystick position from the browser to the ESP32
 		  }
 
 		function handleUp(event)
@@ -262,19 +167,15 @@ class JoystickController1
 	}
 }
 
-let joystick1 = new JoystickController1("stick1", 64, 0);
-let joystick2 = new JoystickController2("stick2", 64, 0);
+var url = "ws://192.168.4.1:1024/";
 
-function update()
-{
-	document.getElementById("status1").innerText = "Motors X: " + JSON.stringify(joystick1.value.x) + ", Y: " + JSON.stringify(joystick1.value.y);
-	document.getElementById("status2").innerText = "Plow X: " + JSON.stringify(joystick2.value.x) + ", Y: " + JSON.stringify(joystick2.value.y);
-}
+
+
+let joystick1 = new JoystickController("stick1", window.innerWidth*0.15, 0);
 
 function loop()
 {
 	requestAnimationFrame(loop);
-	update();
 }
 
 // Sends a message to the server
@@ -288,17 +189,18 @@ function onError(evt) {
 
 // Called when a message is received from the server
 function onMessage(evt) {
-    // the message is called "evt.data"
-    switch(evt.data) {
-        case "0":
-            // led is off
-            break;
-        case "1":
-            // led is on
-            break;
-        default:
-            break;
-    }
+    // the message is accessed by "evt.data"
+
+    // switch(evt.data) {
+    //     case "0":
+    //
+    //         break;
+    //     case "1":
+    //
+    //         break;
+    //     default:
+    //         break;
+    // }
 }
 
 // Called when a WebSocket connection is established with the server
@@ -328,12 +230,115 @@ function wsConnect(url) {
 function init() {
     // Connect to WebSocket server
     wsConnect(url);
+		horn_button.innerHTML = "Horn";
+		arm_button.innerHTML = "Disarmed";
 }
 
+var horn_button = document.getElementById("horn_button");
+var headlights_button = document.getElementById("headlights_button");
+var LED_strip_button = document.getElementById("LED_strip_button");
+var arm_button = document.getElementById("arm_button");
+
+var up_button = document.getElementById("up_button");
+var down_button = document.getElementById("down_button");
+var left_button = document.getElementById("left_button");
+var right_button = document.getElementById("right_button");
+
+var headlights_button_state = 0;
+var LED_strip_button_state = 0;
+var arm_button_state = 0;
+
+// Toggle Buttons
+
+headlights_button.addEventListener("click", () => {
+		headlights_button_state = !headlights_button_state;
+		if(headlights_button_state){
+			headlights_button.style.color = "#ff6600";
+			doSend("hl1");
+		}
+		else{
+			headlights_button.style.color = "#ffffff";
+			doSend("hl0");
+		}
+})
+
+LED_strip_button.addEventListener("click", () => {
+	LED_strip_button_state = !LED_strip_button_state;
+	if(LED_strip_button_state){
+		LED_strip_button.style.color = "#ff6600";
+		doSend("ls1");
+	}
+	else{
+		LED_strip_button.style.color = "#ffffff";
+		doSend("ls0");
+	}
+})
+
+arm_button.addEventListener("click", () => {
+	arm_button_state = !arm_button_state;
+	if(arm_button_state){
+		arm_button.style.color = "#ff6600";
+		arm_button.innerHTML = "Armed";
+		doSend("arm1");
+	}
+	else{
+		arm_button.style.color = "#ffffff";
+		arm_button.innerHTML = "Disarmed";
+		doSend("arm0");
+	}
+})
+
+// Momentary Buttons
+
+horn_button.addEventListener("mousedown", () => {
+		horn_button.innerHTML = "HONK!";
+		horn_button.style.color = "#ff6600";
+		doSend("horn1");
+})
+horn_button.addEventListener("mouseup", () => {
+		horn_button.innerHTML = "Horn";
+		horn_button.style.color = "#ffffff";
+		doSend("horn0");
+})
+
+up_button.addEventListener("mousedown", () => {
+		up_button.style.color = "#ff6600";
+		doSend("up1");
+})
+up_button.addEventListener("mouseup", () => {
+		up_button.style.color = "#ffffff";
+		doSend("up0");
+})
+
+down_button.addEventListener("mousedown", () => {
+		down_button.style.color = "#ff6600";
+		doSend("down1");
+})
+down_button.addEventListener("mouseup", () => {
+		down_button.style.color = "#ffffff";
+		doSend("down0");
+})
+
+left_button.addEventListener("mousedown", () => {
+		left_button.style.color = "#ff6600";
+		doSend("left1");
+})
+left_button.addEventListener("mouseup", () => {
+		left_button.style.color = "#ffffff";
+		doSend("left0");
+})
+
+right_button.addEventListener("mousedown", () => {
+		right_button.style.color = "#ff6600";
+		doSend("right1");
+})
+right_button.addEventListener("mouseup", () => {
+		right_button.style.color = "#ffffff";
+		doSend("right0");
+})
+
 window.addEventListener("load", init, false);
+
 loop();
 
 </script>
-
-</body>
-</html>
