@@ -21,12 +21,18 @@
 		border: solid;
 	  color: #ffffff;
 	  font-family: "Roboto", Helvetica, sans-serif;
-	  font-size: 35px;
+	  font-size: 20px;
 	  font-weight: bold;
 	  text-align: center;
 		padding-top: 12px;
 		padding-bottom: 12px;
 	  position: fixed;
+
+		user-select: none;
+		-moz-user-select: none;
+		-khtml-user-select: none;
+		-webkit-user-select: none;
+		-o-user-select: none;
 	}
 
 
@@ -38,17 +44,17 @@
 <div style="position: absolute; left:1vw; top:1vw; background-color: rgb(27, 42, 54); border-radius: 25%; height:48vw; width:48vw; border-color: #ffffff; border-style: solid;"></div>
 <div id="stick1" style="position: absolute; left:17.5vw; top:17.5vw; background-color: rgb(90, 140, 180); border-radius: 50%; border-color: #ffffff; border-style: solid; height:15vw; width:15vw; cursor: pointer;"></div>
 
-<div id = 'arm_button' class = "myButton" style = "top: 4vh; left:51vw; width: 48vw;">Disarmed</div>
+<div id = 'arm_button' class = "myButton" style = "top: 2vh; left:51vw; width: 48vw;">Disarmed</div>
 
-<div id = 'horn_button' class = "myButton" style = "top: 13vh; left:51vw; width:15.33vw;">Horn</div>
-<div id = 'headlights_button' class = "myButton" style = "top: 13vh; left:67.33vw; width: 15.33vw;">Headlights</div>
-<div id = 'LED_strip_button' class = "myButton" style = "top: 13vh; left:83.67vw; width: 15.33vw;">LED Strip</div>
+<div id = 'horn_button' class = "myButton" style = "top: 15.5vh; left:51vw; width:14.33vw;">Horn</div>
+<div id = 'headlights_button' class = "myButton" style = "top: 15.5vh; left:67.67vw; width: 14.33vw;">Headlights</div>
+<div id = 'LED_strip_button' class = "myButton" style = "top: 15.5vh; left:84.5vw; width: 14.33vw;">LED Strip</div>
 
-<div class = "myButton" style = "top: 37vh; left:72.5vw; width: 5vw; cursor: default;">Plow</div>
-<div id = 'up_button' class = "myButton" style = "top: 28vh; left:72.5vw; width: 5vw;">&#8593;</div>
-<div id = 'down_button' class = "myButton" style = "top: 46vh; left:72.5vw; width: 5vw;">&#8595;</div>
-<div id = 'left_button' class = "myButton" style = "top: 37vh; left:66.5vw; width: 5vw;">&#8592;</div>
-<div id = 'right_button' class = "myButton" style = "top: 37vh; left:78.5vw; width: 5vw;">&#8594;</div>
+<div class = "myButton" style = "top: 50vh; left:72vw; width: 6vw; cursor: default;">Plow</div>
+<div id = 'up_button' class = "myButton" style = "top: 37.5vh; left:72vw; width: 6vw;">&#8593;</div>
+<div id = 'down_button' class = "myButton" style = "top: 62.5vh; left:72vw; width: 6vw;">&#8595;</div>
+<div id = 'left_button' class = "myButton" style = "top: 50vh; left:64.5vw; width: 6vw;">&#8592;</div>
+<div id = 'right_button' class = "myButton" style = "top: 50vh; left:79.5vw; width: 6vw;">&#8594;</div>
 
 
 </body>
@@ -300,12 +306,30 @@ horn_button.addEventListener("mouseup", () => {
 		horn_button.style.color = "#ffffff";
 		doSend("horn0");
 })
+horn_button.addEventListener("touchstart", () => {
+		horn_button.innerHTML = "HONK!";
+		horn_button.style.color = "#ff6600";
+		doSend("horn1");
+})
+horn_button.addEventListener("touchend", () => {
+		horn_button.innerHTML = "Horn";
+		horn_button.style.color = "#ffffff";
+		doSend("horn0");
+})
 
 up_button.addEventListener("mousedown", () => {
 		up_button.style.color = "#ff6600";
 		doSend("up1");
 })
 up_button.addEventListener("mouseup", () => {
+		up_button.style.color = "#ffffff";
+		doSend("up0");
+})
+up_button.addEventListener("touchstart", () => {
+		up_button.style.color = "#ff6600";
+		doSend("up1");
+})
+up_button.addEventListener("touchend", () => {
 		up_button.style.color = "#ffffff";
 		doSend("up0");
 })
@@ -318,6 +342,14 @@ down_button.addEventListener("mouseup", () => {
 		down_button.style.color = "#ffffff";
 		doSend("down0");
 })
+down_button.addEventListener("touchstart", () => {
+		down_button.style.color = "#ff6600";
+		doSend("down1");
+})
+down_button.addEventListener("touchend", () => {
+		down_button.style.color = "#ffffff";
+		doSend("down0");
+})
 
 left_button.addEventListener("mousedown", () => {
 		left_button.style.color = "#ff6600";
@@ -327,12 +359,28 @@ left_button.addEventListener("mouseup", () => {
 		left_button.style.color = "#ffffff";
 		doSend("left0");
 })
+left_button.addEventListener("touchstart", () => {
+		left_button.style.color = "#ff6600";
+		doSend("left1");
+})
+left_button.addEventListener("touchend", () => {
+		left_button.style.color = "#ffffff";
+		doSend("left0");
+})
 
 right_button.addEventListener("mousedown", () => {
 		right_button.style.color = "#ff6600";
 		doSend("right1");
 })
 right_button.addEventListener("mouseup", () => {
+		right_button.style.color = "#ffffff";
+		doSend("right0");
+})
+right_button.addEventListener("touchstart", () => {
+		right_button.style.color = "#ff6600";
+		doSend("right1");
+})
+right_button.addEventListener("touchend", () => {
 		right_button.style.color = "#ffffff";
 		doSend("right0");
 })
