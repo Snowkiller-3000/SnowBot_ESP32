@@ -1,0 +1,29 @@
+body {
+    background-color: rgb(18, 14, 27);
+    color: rgb(255, 255, 255);
+    font-size: 16px;
+    font-family: "Roboto", Helvetica, sans-serif;
+}
+
+.myButton {
+    cursor: pointer;
+    background-color: rgb(18, 14, 27);
+    border-radius: 8px;
+    border-color: #ffffff;
+    border: solid;
+    border-width: 0.1vh;
+    color: #ffffff;
+    font-family: "Roboto", Helvetica, sans-serif;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    position: fixed;
+
+    user-select: none;
+    -moz-user-select: none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    -o-user-select: none;
+}
