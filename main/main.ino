@@ -74,6 +74,7 @@ const int flipY = -1; // The Y-value from the joystick can be sign flipped by ma
 const unsigned long motorTimeout = 30000; // If no commands received after this time, disable motors
 
 // Global Variables
+bool armed = 0; // enable & disable the robot
 char msg_buf[10];
 bool isConnected = 0;
 unsigned long lastCommand = 0;
@@ -131,14 +132,17 @@ void setup() {
   // On HTTP request for style sheet, provide style.css
   server.on("/style.css", HTTP_GET, onCSSRequest);
 
+  // On HTTP request for javascript, provide script.js
+  server.on("/script.js", HTTP_GET, onJSRequest);
+
   // Handle requests for pages that do not exist
   server.onNotFound(onPageNotFound);
 
   // Send joystick background
-  server.on("/joystick-base.png", HTTP_GET, onJoystickBaseRequest);
+  // server.on("/joystick-base.png", HTTP_GET, onJoystickBaseRequest);
 
   // Send joystick foreground
-  server.on("/joystick-red.png", HTTP_GET, onJoystickRedRequest);
+  // server.on("/joystick-red.png", HTTP_GET, onJoystickRedRequest);
 
   // Start web server
   server.begin();
@@ -161,37 +165,43 @@ float getBatteryVoltage() {
 }
 
 void setMotor(int whichMotor, int newSpeed) { // speed value must be between -255 and 255
+  if (armed && (newSpeed != 0)) {
+    if (newSpeed >= -speedLimit && newSpeed <= speedLimit) {
 
-  if (newSpeed >= -speedLimit && newSpeed <= speedLimit) {
+      int absSpeed = abs(newSpeed);
 
-    int absSpeed = abs(newSpeed);
+      Serial.print("Setting motor ");
+      Serial.print(whichMotor);
+      Serial.print(" to speed ");
+      Serial.println(newSpeed);
 
-    Serial.print("Setting motor ");
-    Serial.print(whichMotor);
-    Serial.print(" to speed ");
-    Serial.println(newSpeed);
-
-    if (whichMotor == 1) { // Change Motor 1
-      digiPotWrite(SPI_CS1, absSpeed);
-      // if newSPeed == 0, don't change direction (prevent lurch)
-      if (newSpeed > 0)
-        digitalWrite(motorDir1, LOW);
-      else if (newSpeed < 0)
-        digitalWrite(motorDir1, HIGH);
-    }
-    else if (whichMotor == 2) { // Change Motor 2
-      digiPotWrite(SPI_CS2, absSpeed);
-      if (newSpeed > 0)
-        digitalWrite(motorDir2, LOW);
-      else if (newSpeed < 0)
-        digitalWrite(motorDir2, HIGH);
+      if (whichMotor == 1) { // Change Motor 1
+        digiPotWrite(SPI_CS1, absSpeed);
+        // if newSPeed == 0, don't change direction (prevent lurch)
+        if (newSpeed > 0)
+          digitalWrite(motorDir1, LOW);
+        else if (newSpeed < 0)
+          digitalWrite(motorDir1, HIGH);
+      }
+      else if (whichMotor == 2) { // Change Motor 2
+        digiPotWrite(SPI_CS2, absSpeed);
+        if (newSpeed > 0)
+          digitalWrite(motorDir2, LOW);
+        else if (newSpeed < 0)
+          digitalWrite(motorDir2, HIGH);
+      }
+      else {
+        Serial.println("Error: Invalid motor identifier");
+      }
     }
     else {
-      Serial.println("Error: Invalid motor identifier");
+      Serial.println("Error: Speed out of range");
     }
   }
   else {
-    Serial.println("Error: Speed out of range");
+    if (!armed) {
+      Serial.println("Error: Can't set motors while robot is disarmed");
+    }
   }
 }
 
@@ -204,38 +214,45 @@ void digiPotWrite(int CS, int value)
 }
 
 void setActuator(bool whichActuator, int dir) {
-  Serial.print("Setting actuator ");
-  Serial.print(whichActuator);
-  Serial.print(" to direction ");
-  Serial.println(dir);
+  if (armed) {
+    Serial.print("Setting actuator ");
+    Serial.print(whichActuator);
+    Serial.print(" to direction ");
+    Serial.println(dir);
 
-  if (whichActuator) {
-    if (dir == 1) {
-      digitalWrite(act1L, LOW);
-      digitalWrite(act1H, HIGH);
-    }
-    else if (dir == -1) {
-      digitalWrite(act1H, LOW);
-      digitalWrite(act1L, HIGH);
+    if (whichActuator) {
+      dir *= flipY;
+      if (dir == 1) {
+        digitalWrite(act1L, LOW);
+        digitalWrite(act1H, HIGH);
+      }
+      else if (dir == -1) {
+        digitalWrite(act1H, LOW);
+        digitalWrite(act1L, HIGH);
+      }
+      else {
+        digitalWrite(act1H, LOW);
+        digitalWrite(act1L, LOW);
+      }
     }
     else {
-      digitalWrite(act1H, LOW);
-      digitalWrite(act1L, LOW);
+      dir *= flipX;
+      if (dir == 1) {
+        digitalWrite(act2L, LOW);
+        digitalWrite(act2H, HIGH);
+      }
+      else if (dir == -1) {
+        digitalWrite(act2H, LOW);
+        digitalWrite(act2L, HIGH);
+      }
+      else {
+        digitalWrite(act2H, LOW);
+        digitalWrite(act2L, LOW);
+      }
     }
   }
   else {
-    if (dir == 1) {
-      digitalWrite(act2L, LOW);
-      digitalWrite(act2H, HIGH);
-    }
-    else if (dir == -1) {
-      digitalWrite(act2H, LOW);
-      digitalWrite(act2L, HIGH);
-    }
-    else {
-      digitalWrite(act2H, LOW);
-      digitalWrite(act2L, LOW);
-    }
+    Serial.println("Error: Can't move actuators while robot is disarmed");
   }
 }
 
@@ -284,6 +301,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
       Serial.println("Disconnected!");
       isConnected = 0;
       digitalWrite(ledPin, LOW);
+      armed = 0;
       break;
 
     // New client has connected
@@ -316,35 +334,56 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
         enableMotors();
         setMotor(1, mixMotor1(x, y));
         setMotor(2, mixMotor2(x, y));
-      } else if (str.indexOf("P") != -1 ) {    // Plow joystick data sent
-        float x = flipX * str.substring(1, str.indexOf(',')).toFloat();
-        float y = flipY * str.substring(str.indexOf(',') + 1).toFloat();
-        Serial.print("Plow X: ");
-        Serial.print(x);
-        Serial.print(" Plow Y: ");
-        Serial.println(y);
-        if (x > 0.25) {
-          setActuator(0, 1);
-        } else if (x < -0.25) {
-          setActuator(0, -1);
-        } else {
-          setActuator(0, 0);
-        }
-        if (y > 0.25) {
-          setActuator(1, 1);
-        } else if (y < -0.25) {
-          setActuator(1, -1);
-        } else {
-          setActuator(1, 0);
-        }
-
-      } else if (strcmp((char *)payload, "STOP_M") == 0) {    // Joystick released, stop drive motors
+      } else if (strcmp((char *)payload, "STOP") == 0) {    // Joystick released, stop drive motors
         Serial.println("Stopping Motors");
         setMotor(1, 0);
         setMotor(2, 0);
-      } else if (strcmp((char *)payload, "STOP_P") == 0) {    // Joystick released, stop plow actuators
-        Serial.println("Stopping Actuators");
+      } else if (strcmp((char *)payload, "hl1") == 0) {    // Turn on headlights
+        Serial.println("Turning on headlights");
+        setAuxPwr(2, 1);
+        setAuxPwr(3, 1);
+      } else if (strcmp((char *)payload, "hl0") == 0) {    // Turn off headlights
+        Serial.println("Turning off headlights");
+        setAuxPwr(2, 0);
+        setAuxPwr(3, 0);
+      } else if (strcmp((char *)payload, "ls1") == 0) {    // Turn on LED strip
+        Serial.println("Turning on led strip");
+        setAuxPwr(1, 1);
+      } else if (strcmp((char *)payload, "ls0") == 0) {    // Turn off LED strip
+        Serial.println("Turning off led strip");
+        setAuxPwr(1, 0);
+      } else if (strcmp((char *)payload, "arm1") == 0) {    // Arm the robot
+        Serial.println("Robot is armed");
+        armed = 1;
+      } else if (strcmp((char *)payload, "arm0") == 0) {    // Disarm the robot
+        Serial.println("Robot is disarmed");
+        setMotor(1, 0);
+        setMotor(2, 0);
+        disableMotors();
+        armed = 0;
+      } else if (strcmp((char *)payload, "up1") == 0) {    // Raise implement
+        Serial.println("Raise implement");
+        setActuator(0, 1);
+      } else if (strcmp((char *)payload, "up0") == 0) {    // Stop raising implement
+        Serial.println("Stop raising implement");
         setActuator(0, 0);
+      } else if (strcmp((char *)payload, "down1") == 0) {    // Lower implement
+        Serial.println("Lower implement");
+        setActuator(0, -1);
+      } else if (strcmp((char *)payload, "down0") == 0) {    // Stop lowering implement
+        Serial.println("Stop lowering implement");
+        setActuator(0, 0);
+      } else if (strcmp((char *)payload, "right1") == 0) {    // Move implement right
+        Serial.println("Move implement right");
+        setActuator(1, 1);
+      } else if (strcmp((char *)payload, "right0") == 0) {    // Stop moving implement right
+        Serial.println("Stop movinging implement right");
+        setActuator(1, 0);
+      } else if (strcmp((char *)payload, "left1") == 0) {    // Move implement left
+        Serial.println("Move implement left");
+        setActuator(1, -1);
+      } else if (strcmp((char *)payload, "left0") == 0) {    // Stop moving implement left
+        Serial.println("Stop moving implement left");
         setActuator(1, 0);
       } else {
         Serial.println("Message not recognized");
@@ -366,8 +405,13 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
 void enableMotors() {
   // Turn on the main power solenoid to the motor controllers
   if (isConnected) { // only if a client is connected
-    digitalWrite(aux4, HIGH);
-    Serial.println("Enabling motor controllers");
+    if (armed) {
+      digitalWrite(aux4, HIGH);
+      Serial.println("Enabling motor controllers");
+    }
+    else {
+      Serial.println("Error: Can't enable motors while robot is disarmed");
+    }
   }
   else {
     Serial.println("Error: No client connected");
@@ -396,6 +440,14 @@ void onCSSRequest(AsyncWebServerRequest * request) {
   request->send(SPIFFS, "/style.css", "text/css");
 }
 
+void onJSRequest(AsyncWebServerRequest * request) {
+  // Callback: send javascript
+  IPAddress remote_ip = request->client()->remoteIP();
+  Serial.println("[" + remote_ip.toString() +
+                 "] HTTP GET request of " + request->url());
+  request->send(SPIFFS, "/script.js", "text/plain");
+}
+
 void onPageNotFound(AsyncWebServerRequest * request) {
   // Callback: send 404 if requested file does not exist
   IPAddress remote_ip = request->client()->remoteIP();
@@ -404,21 +456,21 @@ void onPageNotFound(AsyncWebServerRequest * request) {
   request->send(404, "text/plain", "Error (404)\nYou've made a huge mistake!");
 }
 
-void onJoystickBaseRequest(AsyncWebServerRequest * request) {
-  // Callback: send joystick-base.png
-  IPAddress remote_ip = request->client()->remoteIP();
-  Serial.println("[" + remote_ip.toString() +
-                 "] HTTP GET request of " + request->url());
-  request->send(SPIFFS, "/joystick-base.png", "image/png");
-}
-
-void onJoystickRedRequest(AsyncWebServerRequest * request) {
-  // Callback: send joystick-red.png
-  IPAddress remote_ip = request->client()->remoteIP();
-  Serial.println("[" + remote_ip.toString() +
-                 "] HTTP GET request of " + request->url());
-  request->send(SPIFFS, "/joystick-red.png", "image/png");
-}
+//void onJoystickBaseRequest(AsyncWebServerRequest * request) {
+//  // Callback: send joystick-base.png
+//  IPAddress remote_ip = request->client()->remoteIP();
+//  Serial.println("[" + remote_ip.toString() +
+//                 "] HTTP GET request of " + request->url());
+//  request->send(SPIFFS, "/joystick-base.png", "image/png");
+//}
+//
+//void onJoystickRedRequest(AsyncWebServerRequest * request) {
+//  // Callback: send joystick-red.png
+//  IPAddress remote_ip = request->client()->remoteIP();
+//  Serial.println("[" + remote_ip.toString() +
+//                 "] HTTP GET request of " + request->url());
+//  request->send(SPIFFS, "/joystick-red.png", "image/png");
+//}
 
 int mixMotor1(float X, float Y) {
   int result = (int)((Y - X) * speedLimit);

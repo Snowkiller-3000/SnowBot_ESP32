@@ -103,7 +103,7 @@ class JoystickController {
       self.value = { x: 0, y: 0 };
       self.touchId = null;
       self.active = false;
-      doSend("STOP_M");
+      doSend("STOP");
     }
 
     stick.addEventListener("mousedown", handleDown);
@@ -190,7 +190,7 @@ function init() {
 
 var horn_button = document.getElementById("horn_button");
 var headlights_button = document.getElementById("headlights_button");
-var LED_strip_button = document.getElementById("LED_strip_button");
+var led_strip_button = document.getElementById("led_strip_button");
 var arm_button = document.getElementById("arm_button");
 
 var up_button = document.getElementById("up_button");
@@ -199,7 +199,7 @@ var left_button = document.getElementById("left_button");
 var right_button = document.getElementById("right_button");
 
 var headlights_button_state = 0;
-var LED_strip_button_state = 0;
+var led_strip_button_state = 0;
 var arm_button_state = 0;
 
 // Toggle Buttons
@@ -215,13 +215,13 @@ headlights_button.addEventListener("click", () => {
   }
 });
 
-LED_strip_button.addEventListener("click", () => {
-  LED_strip_button_state = !LED_strip_button_state;
-  if (LED_strip_button_state) {
-    LED_strip_button.style.color = "#ff6600";
+led_strip_button.addEventListener("click", () => {
+  led_strip_button_state = !led_strip_button_state;
+  if (led_strip_button_state) {
+    led_strip_button.style.color = "#ff6600";
     doSend("ls1");
   } else {
-    LED_strip_button.style.color = "#ffffff";
+    led_strip_button.style.color = "#ffffff";
     doSend("ls0");
   }
 });
