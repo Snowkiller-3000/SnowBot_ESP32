@@ -165,7 +165,7 @@ float getBatteryVoltage() {
 }
 
 void setMotor(int whichMotor, int newSpeed) { // speed value must be between -255 and 255
-  if (armed && (newSpeed != 0)) {
+  if (armed) {
     if (newSpeed >= -speedLimit && newSpeed <= speedLimit) {
 
       int absSpeed = abs(newSpeed);
@@ -197,11 +197,19 @@ void setMotor(int whichMotor, int newSpeed) { // speed value must be between -25
     else {
       Serial.println("Error: Speed out of range");
     }
+  } else if (newSpeed == 0) { // even if disarmed, allow setting motors to zero
+    if (whichMotor == 1) { // Change Motor 1
+      digiPotWrite(SPI_CS1, 0);
+    }
+    else if (whichMotor == 2) { // Change Motor 2
+      digiPotWrite(SPI_CS2, 0);
+    }
+    else {
+      Serial.println("Error: Invalid motor identifier");
+    }
   }
   else {
-    if (!armed) {
-      Serial.println("Error: Can't set motors while robot is disarmed");
-    }
+    Serial.println("Error: Can't set motors while robot is disarmed");
   }
 }
 
@@ -312,6 +320,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
         Serial.println(ip.toString());
         digitalWrite(ledPin, HIGH);
         isConnected = 1;
+        armed = 0;
       }
       break;
 
@@ -363,28 +372,28 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
         armed = 0;
       } else if (strcmp((char *)payload, "up1") == 0) {    // Raise implement
         Serial.println("Raise implement");
-        setActuator(0, 1);
+        setActuator(1, 1);
       } else if (strcmp((char *)payload, "up0") == 0) {    // Stop raising implement
         Serial.println("Stop raising implement");
-        setActuator(0, 0);
+        setActuator(1, 0);
       } else if (strcmp((char *)payload, "down1") == 0) {    // Lower implement
         Serial.println("Lower implement");
-        setActuator(0, -1);
+        setActuator(1, -1);
       } else if (strcmp((char *)payload, "down0") == 0) {    // Stop lowering implement
         Serial.println("Stop lowering implement");
-        setActuator(0, 0);
+        setActuator(1, 0);
       } else if (strcmp((char *)payload, "right1") == 0) {    // Move implement right
         Serial.println("Move implement right");
-        setActuator(1, 1);
+        setActuator(0, 1);
       } else if (strcmp((char *)payload, "right0") == 0) {    // Stop moving implement right
         Serial.println("Stop movinging implement right");
-        setActuator(1, 0);
+        setActuator(0, 0);
       } else if (strcmp((char *)payload, "left1") == 0) {    // Move implement left
         Serial.println("Move implement left");
-        setActuator(1, -1);
+        setActuator(0, -1);
       } else if (strcmp((char *)payload, "left0") == 0) {    // Stop moving implement left
         Serial.println("Stop moving implement left");
-        setActuator(1, 0);
+        setActuator(0, 0);
       } else {
         Serial.println("Message not recognized");
       }
