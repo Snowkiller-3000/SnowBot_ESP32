@@ -60,8 +60,8 @@
 #define SPI_CS2 4
 
 // Network Constants
-const char *ssid = "SnowKiller3000";
-const char *password =  "123456789";
+const char *ssid = "snowbot";
+const char *password =  "12345678";
 const int dns_port = 53;
 const int http_port = 80;
 const int ws_port = 1024;
@@ -72,6 +72,7 @@ const int speedLimit = 250; // Speed can be limited for safety during testing. A
 const int flipX = 1; // The X-value from the joystick can be sign flipped by making this -1
 const int flipY = -1; // The Y-value from the joystick can be sign flipped by making this -1
 const unsigned long motorTimeout = 30000; // If no commands received after this time, disable motors
+const float exponent = 2; // Used for control expo mapping
 
 // Global Variables
 bool armed = 0; // enable & disable the robot
@@ -165,10 +166,13 @@ float getBatteryVoltage() {
 }
 
 void setMotor(int whichMotor, int newSpeed) { // speed value must be between -255 and 255
+  
   if (armed) {
     if (newSpeed >= -speedLimit && newSpeed <= speedLimit) {
 
       int absSpeed = abs(newSpeed);
+      
+      absSpeed = expoMap(absSpeed); // apply expo 
 
       Serial.print("Setting motor ");
       Serial.print(whichMotor);
@@ -491,4 +495,9 @@ int mixMotor2(float X, float Y) {
   int result = (int)((Y + X) * speedLimit);
   result = constrain(result, -speedLimit, speedLimit);
   return result;
+}
+
+int expoMap(int input){
+  int output = (int)(pow(input, exponent) / pow(speedLimit, exponent-1));
+  return output;
 }
