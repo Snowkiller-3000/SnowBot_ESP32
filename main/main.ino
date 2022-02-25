@@ -56,8 +56,8 @@
 
 #define SPI_CLK 14
 #define SPI_DI  13
-#define SPI_CS1 15
-#define SPI_CS2 4
+#define CS1 15
+#define CS2 4
 
 // Network Constants
 const char *ssid = "snowbot";
@@ -82,20 +82,21 @@ unsigned long lastCommand = 0;
 bool timedOut = 0;
 
 // Create SPI object on HSPI pins (CLK 14, DI 13)
-SPIClass SPI1(HSPI);
+SPIClass mySPI(HSPI);
 
 // Create Server
 AsyncWebServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(ws_port);
 
 void setup() {
-  SPI1.begin();
 
   Serial.begin(115200);
   Serial.println("Hello");
 
-  pinMode(SPI_CS1, OUTPUT);
-  pinMode(SPI_CS2, OUTPUT);
+  mySPI.begin();
+
+  pinMode(CS1, OUTPUT);
+  pinMode(CS2, OUTPUT);
   pinMode(ledPin, OUTPUT);
   pinMode(motorDir1, OUTPUT);
   pinMode(motorDir2, OUTPUT);
@@ -180,7 +181,7 @@ void setMotor(int whichMotor, int newSpeed) { // speed value must be between -25
       Serial.println(newSpeed);
 
       if (whichMotor == 1) { // Change Motor 1
-        digiPotWrite(SPI_CS1, absSpeed);
+        digiPotWrite(CS1, absSpeed);
         // if newSPeed == 0, don't change direction (prevent lurch)
         if (newSpeed > 0)
           digitalWrite(motorDir1, LOW);
@@ -188,7 +189,7 @@ void setMotor(int whichMotor, int newSpeed) { // speed value must be between -25
           digitalWrite(motorDir1, HIGH);
       }
       else if (whichMotor == 2) { // Change Motor 2
-        digiPotWrite(SPI_CS2, absSpeed);
+        digiPotWrite(CS2, absSpeed);
         if (newSpeed > 0)
           digitalWrite(motorDir2, LOW);
         else if (newSpeed < 0)
@@ -203,10 +204,10 @@ void setMotor(int whichMotor, int newSpeed) { // speed value must be between -25
     }
   } else if (newSpeed == 0) { // even if disarmed, allow setting motors to zero
     if (whichMotor == 1) { // Change Motor 1
-      digiPotWrite(SPI_CS1, 0);
+      digiPotWrite(CS1, 0);
     }
     else if (whichMotor == 2) { // Change Motor 2
-      digiPotWrite(SPI_CS2, 0);
+      digiPotWrite(CS2, 0);
     }
     else {
       Serial.println("Error: Invalid motor identifier");
@@ -220,8 +221,8 @@ void setMotor(int whichMotor, int newSpeed) { // speed value must be between -25
 void digiPotWrite(int CS, int value)
 {
   digitalWrite(CS, LOW);
-  SPI1.transfer(0x11);
-  SPI1.transfer(value);
+  mySPI.transfer(0x11);
+  mySPI.transfer(value);
   digitalWrite(CS, HIGH);
 }
 
@@ -468,22 +469,6 @@ void onPageNotFound(AsyncWebServerRequest * request) {
                  "] HTTP GET request of " + request->url());
   request->send(404, "text/plain", "Error (404)\nYou've made a huge mistake!");
 }
-
-//void onJoystickBaseRequest(AsyncWebServerRequest * request) {
-//  // Callback: send joystick-base.png
-//  IPAddress remote_ip = request->client()->remoteIP();
-//  Serial.println("[" + remote_ip.toString() +
-//                 "] HTTP GET request of " + request->url());
-//  request->send(SPIFFS, "/joystick-base.png", "image/png");
-//}
-//
-//void onJoystickRedRequest(AsyncWebServerRequest * request) {
-//  // Callback: send joystick-red.png
-//  IPAddress remote_ip = request->client()->remoteIP();
-//  Serial.println("[" + remote_ip.toString() +
-//                 "] HTTP GET request of " + request->url());
-//  request->send(SPIFFS, "/joystick-red.png", "image/png");
-//}
 
 int mixMotor1(float X, float Y) {
   int result = (int)((Y - X) * speedLimit);
