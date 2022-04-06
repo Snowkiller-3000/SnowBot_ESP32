@@ -1,1 +1,1 @@
-# Code for the ESP32, in the SnowKiller 3000
+# Code for the ESP32, running on SnowBot.
